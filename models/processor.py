@@ -1,9 +1,10 @@
-from rasterio.transform import from_origin
 import rasterio
+from rasterio.transform import from_origin
+from rasterio.errors import NotGeoreferencedWarning
 from csv import DictReader
 import os
-import os
 import numpy as np
+import geopandas as gpd
 
 
 class BaseImage:
@@ -57,19 +58,25 @@ class BaseImage:
             + f"_CE{coords['col_end']}"
         )
 
-    def _tile_image(self):
+    def _tile_image(self, shapefile_dir: str = None):
         """ Split the padded image into non-overlapping tiles """
         image, (padding) = self._pad_image()
 
         pad_h, pad_w = padding
         orig_h, orig_w = image.shape[0] - pad_h, image.shape[1] - pad_w
 
+        # Conditional on geospatial data
+        if shapefile_dir:
+            self.transform, self.crs, self.bounds = self._load_shapefile(
+                shapefile_dir)
+        else:
+            self.transform, self.crs, self.bounds = None, None, None
+
         # Tiling
         tiles = []
         for i in range(0, image.shape[0], self.tile_size[0]):
             for j in range(0, image.shape[1], self.tile_size[1]):
                 tile = image[i:i+self.tile_size[0], j:j+self.tile_size[1], :]
-                # tiles.append(tile)
 
                 # Calculate coordinates in original (non-padded) image space
                 coords = {
@@ -80,10 +87,26 @@ class BaseImage:
                     "is_padded": (i + self.tile_size[0] > orig_h) or (j + self.tile_size[1] > orig_w)
                 }
 
+                if self.transform:
+                    x_min = self.bounds[0] + j * self.transform.a
+                    x_max = x_min + self.tile_size[1] * self.transform.a
+                    y_max = self.bounds[3] + i * self.transform.e
+                    y_min = y_max + self.tile_size[0] * self.transform.e
+
+                    geospatial_bounds = {
+                        "minx": x_min, "maxx": x_max,
+                        "miny": y_min, "maxy": y_max
+                    }
+                else:
+                    geospatial_bounds = None
+
                 tile = {
                     "id": self._generate_tile_id(coords),
                     "tile": tile,
-                    "coords": coords
+                    "original_coords": coords,
+                    "geospatial_bounds": geospatial_bounds,
+                    "crs": self.crs,
+
                 }
 
                 tiles.append(tile)
@@ -92,16 +115,24 @@ class BaseImage:
 
     def _generate_tile_ouput_path(self, output_dir, tile_id, extension):
         """ Generate the output path for a tile """
-        return f"{output_dir}/{tile_id}.{extension}"
+        return os.path.join(output_dir, f"{tile_id}.{extension}")
 
 
 class Subscene(BaseImage):
-    def __init__(self, subscene_dir, subscene_filename, classif_tags_filepath: str, tile_size: tuple[int] = (512, 512)):
+    def __init__(
+        self, subscene_dir,
+        subscene_filename,
+        classif_tags_filepath: str,
+        shapefile_dir: str = None,
+        tile_size: tuple[int] = (512, 512)
+    ):
         super().__init__(subscene_dir, subscene_filename)
         self.classif_tags_filepath = classif_tags_filepath
+        self.shapefile_dir = shapefile_dir
         self.tile_size = tile_size
+        # Computed attributes
         self.id = self._get_image_id()
-        self.tiles = self._tile_image()
+        self.tiles = self._tile_image(self.shapefile_dir)
         self.classif_data = self._get_classif_data()
 
         # self.metadata = {
@@ -136,32 +167,55 @@ class Subscene(BaseImage):
         """ Extract the product id from the classification data """
         return self._get_classif_data()["scene"]
 
-    def save_subscene_tiles(self, output_dir: str, out_dtype: type = np.uint16, pixel_size: tuple[int, int] = (10, 10), crs: str = "EPSG:4326"):
-        """ Save the subscene tiles to a Cloud Optimized GeoTIFF """
+    def _load_shapefile(self, shapefile_dir: str):
+        """ Load the shapefile with the geospatial information. """
+        shapefile_path = os.path.join(
+            shapefile_dir, f"{self.id}/{self.id}.shp")
+        if not os.path.exists(shapefile_path):
+            raise FileNotFoundError(f"Shapefile not found: {shapefile_path}")
+
+        # Load shapefile with geopandas
+        gdf = gpd.read_file(shapefile_path)
+
+        # Get (minx, miny, maxx, maxy) bounds and CRS
+        bounds = gdf.geometry.iloc[0].bounds
+        crs = gdf.crs.to_string()
+
+        width, height = self.image.shape[:2]  # Get image dimensions
+
+        # Compute pixel size
+        x_res = (bounds[2] - bounds[0]) / width
+        y_res = (bounds[3] - bounds[1]) / height
+
+        # Compute affine transform
+        transform = from_origin(bounds[0], bounds[3], x_res, y_res)
+
+        return transform, crs, bounds
+
+    def save_subscene_tiles_geo(self, output_dir: str, out_dtype: type = np.uint16):
+        """ Alternative: Save the subscene tiles to a Cloud Optimized GeoTIFF 
+            This method uses geospatial metadata to save the tiles in the correct geospatial
+            location.
+        """
         # Create ouput dir if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
 
         for t in self.tiles:
             tile = t["tile"].astype(out_dtype)
             tile_id = t["id"]
-            tile_coords = t["coords"]
+            # tile_coords = t["original_coords"]
+            tile_geo_bounds = t["geospatial_bounds"]
 
-            # TODO: Not sure if it's correctly handled here
-            row_start = tile_coords['row_start'] * pixel_size[0]
-            col_start = tile_coords['col_start'] * pixel_size[1]
-
-            transform = from_origin(
-                north=row_start,
-                west=col_start,
-                ysize=pixel_size[0],
-                xsize=pixel_size[1],
-            )
+            if tile_geo_bounds:
+                x_coord, y_coord = tile_geo_bounds["minx"], tile_geo_bounds["maxy"]
+                tile_transform = from_origin(
+                    x_coord, y_coord, self.transform.a, self.transform.e)
+            else:
+                tile_transform = None
 
             h, w, c = tile.shape
             output_path = self._generate_tile_ouput_path(
                 output_dir, tile_id, "tif")
-            self.tiles
-            # print(f"Saving tile to {output_path}")
 
             with rasterio.open(
                 output_path,
@@ -171,13 +225,55 @@ class Subscene(BaseImage):
                 width=w,
                 count=c,
                 dtype=tile.dtype,
-                crs=crs,
-                transform=transform,
+                crs=self.crs if tile_geo_bounds else None,
+                transform=tile_transform if tile_geo_bounds else None,
                 tiled=True,
             ) as dataset:
                 for i in range(c):
                     band = tile[:, :, i]
                     dataset.write_band(i+1, band)
+    # def save_subscene_tiles(self, output_dir: str, out_dtype: type = np.uint16, pixel_size: tuple[int, int] = (10, 10), crs: str = "EPSG:4326"):
+    #     """ Save the subscene tiles to a Cloud Optimized GeoTIFF """
+    #     # Create ouput dir if it doesn't exist
+    #     os.makedirs(output_dir, exist_ok=True)
+
+    #     for t in self.tiles:
+    #         tile = t["tile"].astype(out_dtype)
+    #         tile_id = t["id"]
+    #         tile_coords = t["original_coords"]
+
+    #         # TODO: Not sure if it's correctly handled here
+    #         row_start = tile_coords['row_start'] * pixel_size[0]
+    #         col_start = tile_coords['col_start'] * pixel_size[1]
+
+    #         transform = from_origin(
+    #             north=row_start,
+    #             west=col_start,
+    #             ysize=pixel_size[0],
+    #             xsize=pixel_size[1],
+    #         )
+
+    #         h, w, c = tile.shape
+    #         output_path = self._generate_tile_ouput_path(
+    #             output_dir, tile_id, "tif")
+    #         self.tiles
+    #         # print(f"Saving tile to {output_path}")
+
+    #         with rasterio.open(
+    #             output_path,
+    #             'w',
+    #             driver='GTiff',
+    #             height=h,
+    #             width=w,
+    #             count=c,
+    #             dtype=tile.dtype,
+    #             crs=crs,
+    #             transform=transform,
+    #             tiled=True,
+    #         ) as dataset:
+    #             for i in range(c):
+    #                 band = tile[:, :, i]
+    #                 dataset.write_band(i+1, band)
 
 
 class Mask(BaseImage):
