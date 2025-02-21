@@ -145,13 +145,13 @@ class TestTileProcessing(unittest.TestCase):
                 passed += 1
 
         print(
-            f"Test 'test_metadata_accuracy': "
+            "Test 'test_metadata_accuracy':"
             + f"{passed}/{len(metadata_files)} metadata files passed."
         )
 
     def test_cloud_coverage(self):
         """
-        Test if the cloud coverage in the metadata files matches 
+        Test if the cloud coverage in the metadata files matches
         the actual cloud coverage in the mask.
         """
         mask_paths = glob.glob(f"{self.OUTPUT_MASKS_DIR}/*.npy")
@@ -185,7 +185,7 @@ class TestTileProcessing(unittest.TestCase):
 
     def test_tile_original_coordinates(self):
         """
-        Test if the generated tiles have the 
+        Test if the generated tiles have the
         correct original coordinates from the subscene.
         """
         metadata_files = glob.glob(
@@ -231,7 +231,7 @@ class TestTileProcessing(unittest.TestCase):
         self.assertEqual(
             errors, 0, f"Found {errors} tiles with incorrect original coordinates!")
         print(
-            f"Test 'test_tile_original_coordinates':"
+            "Test 'test_tile_original_coordinates':"
             + f"{total_tiles - errors}/{total_tiles} tiles passed."
         )
 

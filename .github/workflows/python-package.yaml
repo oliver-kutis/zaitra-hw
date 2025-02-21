@@ -27,10 +27,10 @@ jobs:
         pip install flake8 black
     - name: Run linting
       run: |
-        flake8 models tests
+        flake8 s2_processor tests
     - name: Run formatting check
       run: |
-        black --check models tests
+        black --check s2_processor tests
     - name: Run tests
       run: |
         python -m unittest discover -s tests
