@@ -105,7 +105,10 @@ class BaseImage:
                     "row_end": min(orig_h, i + self.tile_size[0]),
                     "col_start": max(0, j),
                     "col_end": min(orig_w, j + self.tile_size[1]),
-                    "is_padded": (i + self.tile_size[0] > orig_h) or (j + self.tile_size[1] > orig_w)
+                    "is_padded": (
+                        (i + self.tile_size[0] > orig_h)
+                        or (j + self.tile_size[1] > orig_w)
+                    )
                 }
 
                 if self.transform:
@@ -134,7 +137,8 @@ class BaseImage:
 
         return tiles
 
-    def _generate_tile_ouput_path(self, output_dir: str, tile_id: str, extension: str) -> str:
+    def _generate_tile_ouput_path(
+            self, output_dir: str, tile_id: str, extension: str) -> str:
         """
         Generate the output path for a tile.
 
@@ -158,7 +162,8 @@ class Subscene(BaseImage):
         tile_size: Tuple[int] = (512, 512)
     ):
         """
-        Initialize Subscene with subscene directory, filename, classification tags file, and optional shapefile directory.
+        Initialize Subscene with subscene directory, filename,
+        classification tags file, and optional shapefile directory.
 
         Args:
             subscene_dir: Directory containing the subscene file.
@@ -204,7 +209,8 @@ class Subscene(BaseImage):
         """ Extract the product id from the classification data """
         return self._get_classif_data()["scene"]
 
-    def _load_shapefile(self, shapefile_dir: str) -> Tuple[AffineTransformer, str, Tuple[float]]:
+    def _load_shapefile(
+            self, shapefile_dir: str) -> Tuple[AffineTransformer, str, Tuple[float]]:
         """ Load the shapefile with the geospatial information. """
         shapefile_path = os.path.join(
             shapefile_dir, f"{self.id}/{self.id}.shp")
@@ -229,7 +235,8 @@ class Subscene(BaseImage):
 
         return transform, crs, bounds
 
-    def save_subscene_tiles_geo(self, output_dir: str, out_dtype: type = np.uint16) -> None:
+    def save_subscene_tiles_geo(
+            self, output_dir: str, out_dtype: type = np.uint16) -> None:
         """
         Save the subscene tiles to a Cloud Optimized GeoTIFF.
 
@@ -275,7 +282,10 @@ class Subscene(BaseImage):
 
 
 class Mask(BaseImage):
-    def __init__(self, mask_dir: str, mask_filename: str, tile_size: Tuple[int, int] = (512, 512)):
+    def __init__(
+        self, mask_dir: str, mask_filename: str,
+        tile_size: Tuple[int, int] = (512, 512)
+    ):
         """
         Initialize Mask with mask directory, filename, and tile size.
 

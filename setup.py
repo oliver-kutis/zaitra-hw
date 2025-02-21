@@ -16,11 +16,11 @@ setup(
         "geopandas>=1.0",
         "python-dotenv>=1.0"
     ],
-    entry_points={
-        "console_scripts": [
-            # Define command-line scripts here
-        ],
-    },
+    # entry_points={
+    #     "console_scripts": [
+    #         # Define command-line scripts here
+    #     ],
+    # },
     author="Oliver Kutiš",
     author_email="analytika.oliver.kutis@gmail.com",
     description="A package for preprocessing Sentinel-2 "

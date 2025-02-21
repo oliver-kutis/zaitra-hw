@@ -1,7 +1,6 @@
 import numpy as np
 import rasterio
 from typing import List, Dict, Optional, Any, Tuple
-from .processor import Subscene, Mask
 
 
 def load_tile(
@@ -36,8 +35,8 @@ def load_tile_tif(
     tile_path: str,
     bands: List[int] = None
 ) -> Tuple[np.ndarray, rasterio.profiles.Profile]:
-    """ 
-    Load image with geospatial information 
+    """
+    Load image with geospatial information
 
     Args:
         tile_path: Path to the tile
