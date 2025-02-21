@@ -11,10 +11,10 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        "numpy>=2.2.3",
-        "rasterio>=1.4.3",
-        "geopandas>=1.0.1",
-        "python-dotenv>=1.0.1"
+        "numpy>=1.24",
+        "rasterio>=1.4",
+        "geopandas>=1.0",
+        "python-dotenv>=1.0"
     ],
     entry_points={
         "console_scripts": [
