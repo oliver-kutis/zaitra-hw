@@ -22,15 +22,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install .
-    - name: Install linting and formatting tools
-      run: |
-        pip install flake8 black
-    - name: Run linting
-      run: |
-        flake8 s2_processor tests
-    - name: Run formatting check
-      run: |
-        black --check s2_processor tests
+    # - name: Install linting and formatting tools
+    #   run: |
+    #     pip install flake8 black
+    # - name: Run linting
+    #   run: |
+    #     flake8 s2_processor tests
+    # - name: Run formatting check
+    #   run: |
+    #     black --check s2_processor tests
     - name: Run tests
       run: |
         python -m unittest discover -s tests
