@@ -1,8 +1,8 @@
 import glob
 import os
 from dotenv import load_dotenv
-from models.processor import Subscene, Mask
-from models.metadata import TileMetadata, DatasetMetadata
+from s2_processor.processor import Subscene, Mask
+from s2_processor.metadata import TileMetadata, DatasetMetadata
 
 # Load env variables
 load_dotenv()
