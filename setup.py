@@ -23,7 +23,8 @@ setup(
     },
     author="Oliver Kutiš",
     author_email="analytika.oliver.kutis@gmail.com",
-    description="A package for preprocessing Sentinel-2 Cloud Mask dataset for ML training.",
+    description="A package for preprocessing Sentinel-2 "
+    + "Cloud Mask dataset for ML training.",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
     url="https://github.com/oliver-kutis/zaitra-hw",

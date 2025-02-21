@@ -16,7 +16,9 @@ class TileMetadata:
         self.subscene = subscene
         self.mask = mask
 
-    def _to_dict(self, subscene_tile: Dict[str, Any], mask_tile: Dict[str, Any]) -> Dict[str, Any]:
+    def _to_dict(
+        self, subscene_tile: Dict[str, Any], mask_tile: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Convert metadata to a python dictionary.
 

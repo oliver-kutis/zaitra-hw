@@ -40,7 +40,9 @@ class TestTileProcessing(unittest.TestCase):
                          "Mismatch between image and mask tiles!")
 
         print(
-            f"Test 'test_generated_files': {len(image_tiles)} image tiles, {len(mask_tiles)} mask tiles, {len(metadata_files)} metadata files.")
+            f"Test 'test_generated_files': {len(image_tiles)} image tiles, "
+            f"{len(mask_tiles)} mask tiles, {len(metadata_files)} metadata files."
+        )
 
     def test_tile_dimensions(self):
         """
@@ -54,13 +56,20 @@ class TestTileProcessing(unittest.TestCase):
                 h, w = img.shape
                 bands = img.count
                 self.assertEqual(
-                    (h, w), self.TILE_SIZE, f"Incorrect tile size in {tile_path}: {h}x{w} instead of {self.TILE_SIZE}")
+                    (h, w), self.TILE_SIZE,
+                    f"Incorrect tile size in {tile_path}: "
+                    f"{h}x{w} instead of {self.TILE_SIZE}"
+                )
                 self.assertEqual(
-                    bands, 13, f"Incorrect number of bands in {tile_path}: {bands} instead of 13")
+                    bands,
+                    13,
+                    f"Incorrect number of bands in {tile_path}: {bands} instead of 13"
+                )
                 passed += 1
 
         print(
-            f"Test 'test_tile_dimensions': {passed}/{len(tile_paths)} tiles passed.")
+            f"Test 'test_tile_dimensions': {passed}/{len(tile_paths)} tiles passed."
+        )
 
     def test_geospatial_coordinates(self):
         """
@@ -77,7 +86,9 @@ class TestTileProcessing(unittest.TestCase):
                 passed += 1
 
         print(
-            f"Test 'test_geospatial_coordinates': {passed}/{len(tile_paths)} tiles passed.")
+            f"Test 'test_geospatial_coordinates': "
+            f"{passed}/{len(tile_paths)} tiles passed."
+        )
 
     def test_geospatial_bounds(self):
         """
@@ -109,7 +120,8 @@ class TestTileProcessing(unittest.TestCase):
                 passed += 1
 
         print(
-            f"Test 'test_geospatial_bounds': {passed}/{len(tile_paths)} tiles passed.")
+            f"Test 'test_geospatial_bounds': {passed}/{len(tile_paths)} tiles passed."
+        )
 
     def test_metadata_accuracy(self):
         """
@@ -133,11 +145,14 @@ class TestTileProcessing(unittest.TestCase):
                 passed += 1
 
         print(
-            f"Test 'test_metadata_accuracy': {passed}/{len(metadata_files)} metadata files passed.")
+            f"Test 'test_metadata_accuracy': "
+            + f"{passed}/{len(metadata_files)} metadata files passed."
+        )
 
     def test_cloud_coverage(self):
         """
-        Test if the cloud coverage in the metadata files matches the actual cloud coverage in the mask.
+        Test if the cloud coverage in the metadata files matches 
+        the actual cloud coverage in the mask.
         """
         mask_paths = glob.glob(f"{self.OUTPUT_MASKS_DIR}/*.npy")
         passed = 0
@@ -149,21 +164,29 @@ class TestTileProcessing(unittest.TestCase):
             cloud_mask = mask[:, :, 1]
             cloud_coverage = np.sum(cloud_mask) / cloud_mask.size
 
-            metadata_path = f"{self.OUTPUT_METADATA_SUBSCENES_DIR}/{os.path.basename(mask_md_path).replace('.npy', '.json')}"
+            metadata_path = (
+                f"{self.OUTPUT_METADATA_SUBSCENES_DIR}/"
+                f"{os.path.basename(mask_md_path).replace('.npy', '.json')}"
+            )
             with open(metadata_path, "r") as f:
                 metadata = json.load(f)
                 for tile in metadata['tiles']:
                     if tile['id'] == os.path.basename(mask_path).replace(".npy", ""):
                         self.assertAlmostEqual(
-                            tile["cloud_coverage"], cloud_coverage, places=4, msg=f"Cloud coverage mismatch in {metadata_path}")
+                            tile["cloud_coverage"],
+                            cloud_coverage,
+                            places=4, msg=f"Cloud coverage mismatch in {metadata_path}"
+                        )
                         passed += 1
 
         print(
-            f"Test 'test_cloud_coverage': {passed}/{len(mask_paths)} masks passed.")
+            f"Test 'test_cloud_coverage': {passed}/{len(mask_paths)} masks passed."
+        )
 
     def test_tile_original_coordinates(self):
         """
-        Test if the generated tiles have the correct original coordinates from the subscene.
+        Test if the generated tiles have the 
+        correct original coordinates from the subscene.
         """
         metadata_files = glob.glob(
             f"{self.OUTPUT_METADATA_SUBSCENES_DIR}/*.json")
@@ -183,14 +206,18 @@ class TestTileProcessing(unittest.TestCase):
                 total_tiles += 1
                 tile_id = tile["id"]
                 original_coords = tile["original_coords"]
-                row_start, row_end = original_coords["row_start"], original_coords["row_end"]
-                col_start, col_end = original_coords["col_start"], original_coords["col_end"]
+
+                row_start = original_coords["row_start"]
+                row_end = original_coords["row_end"]
+                col_start = original_coords["col_start"]
+                col_end = original_coords["col_end"]
 
                 with rasterio.open(f"{self.OUTPUT_SUBSCENE_DIR}/{tile_id}.tif") as img:
                     actual_tile = img.read().astype(np.uint16)
                     actual_tile = np.moveaxis(actual_tile, 0, -1)
-                    actual_tile = actual_tile[:row_end -
-                                              row_start, :col_end-col_start, :]
+                    actual_tile = actual_tile[:row_end - row_start,
+                                              :col_end - col_start,
+                                              :]
 
                 subscene_tile_region = subscene[row_start:row_end,
                                                 col_start:col_end, :]
@@ -204,7 +231,9 @@ class TestTileProcessing(unittest.TestCase):
         self.assertEqual(
             errors, 0, f"Found {errors} tiles with incorrect original coordinates!")
         print(
-            f"Test 'test_tile_original_coordinates': {total_tiles - errors}/{total_tiles} tiles passed.")
+            f"Test 'test_tile_original_coordinates':"
+            + f"{total_tiles - errors}/{total_tiles} tiles passed."
+        )
 
 
 if __name__ == "__main__":

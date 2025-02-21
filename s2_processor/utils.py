@@ -32,7 +32,10 @@ def load_tile(
     return img
 
 
-def load_tile_tif(tile_path: str, bands: List[int] = None) -> Tuple[np.ndarray, rasterio.profiles.Profile]:
+def load_tile_tif(
+    tile_path: str,
+    bands: List[int] = None
+) -> Tuple[np.ndarray, rasterio.profiles.Profile]:
     """ 
     Load image with geospatial information 
 
