@@ -1,16 +1,24 @@
 import rasterio
+from rasterio.transform import AffineTransformer
 from rasterio.transform import from_origin
-from rasterio.errors import NotGeoreferencedWarning
 from csv import DictReader
 import os
 import numpy as np
 import geopandas as gpd
+from typing import Dict, List, Tuple, Optional, Any
 
 
 class BaseImage:
     "Base class for images"
 
     def __init__(self, input_dir: str, filename: str):
+        """
+        Initialize BaseImage with input directory and filename.
+
+        Args:
+            input_dir: Directory containing the image file.
+            filename: Name of the image file.
+        """
         self.input_dir = input_dir
         self.filename = filename
         self.image = np.load(f"{self.input_dir}/{self.filename}")
@@ -20,7 +28,12 @@ class BaseImage:
         return self.filename.split(".")[0]
 
     def _pad_image(self):
-        """ Pad image to make it divisible by the tile size """
+        """
+        Pad image to make it divisible by the tile size.
+
+        Returns:
+            Tuple containing the padded image and the padding applied (pad_h, pad_w).
+        """
 
         h, w, _ = self.image.shape
         pad_h = (self.tile_size[0] - (h %
@@ -35,8 +48,8 @@ class BaseImage:
 
         return padded_image, (pad_h, pad_w)
 
-    def _generate_tile_id(self, coords):
-        """ Generate a unique tile id from its original image / mask coordinates 
+    def _generate_tile_id(self, coords: Dict[str, int]) -> str:
+        """ Generate a unique tile id from its original image / mask coordinates
         Args:
         tile_coords (dict): dictionary with the following keys:
             - row_start
@@ -45,7 +58,7 @@ class BaseImage:
             - col_end
 
         Returns:
-        str: a unique tile id in the format 
+        str: a unique tile id in the format
             TL_RS{row_start_ix}_RE{row_end_ix}_CS{col_start_ix}_CE{col_end_ix}
 
 
@@ -58,8 +71,16 @@ class BaseImage:
             + f"_CE{coords['col_end']}"
         )
 
-    def _tile_image(self, shapefile_dir: str = None):
-        """ Split the padded image into non-overlapping tiles """
+    def _tile_image(self, shapefile_dir: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Split the padded image into non-overlapping tiles.
+
+        Args:
+            shapefile_dir: Directory containing the shapefile for geospatial data.
+
+        Returns:
+            List of dictionaries containing tile information.
+        """
         image, (padding) = self._pad_image()
 
         pad_h, pad_w = padding
@@ -113,19 +134,39 @@ class BaseImage:
 
         return tiles
 
-    def _generate_tile_ouput_path(self, output_dir, tile_id, extension):
-        """ Generate the output path for a tile """
+    def _generate_tile_ouput_path(self, output_dir: str, tile_id: str, extension: str) -> str:
+        """
+        Generate the output path for a tile.
+
+        Args:
+            output_dir: Directory to save the tile.
+            tile_id: Unique tile identifier.
+            extension: File extension for the tile.
+
+        Returns:
+            str: The output path for the tile.
+        """
         return os.path.join(output_dir, f"{tile_id}.{extension}")
 
 
 class Subscene(BaseImage):
     def __init__(
-        self, subscene_dir,
-        subscene_filename,
+        self, subscene_dir: str,
+        subscene_filename: str,
         classif_tags_filepath: str,
-        shapefile_dir: str = None,
-        tile_size: tuple[int] = (512, 512)
+        shapefile_dir: Optional[str] = None,
+        tile_size: Tuple[int] = (512, 512)
     ):
+        """
+        Initialize Subscene with subscene directory, filename, classification tags file, and optional shapefile directory.
+
+        Args:
+            subscene_dir: Directory containing the subscene file.
+            subscene_filename: Name of the subscene file.
+            classif_tags_filepath: Path to the classification tags file.
+            shapefile_dir: Directory containing the shapefile for geospatial data.
+            tile_size: Tuple specifying the tile size.
+        """
         super().__init__(subscene_dir, subscene_filename)
         self.classif_tags_filepath = classif_tags_filepath
         self.shapefile_dir = shapefile_dir
@@ -135,39 +176,35 @@ class Subscene(BaseImage):
         self.tiles = self._tile_image(self.shapefile_dir)
         self.classif_data = self._get_classif_data()
 
-        # self.metadata = {
-        #     "id": self._get_product_id(),
-        #     "filename": self.filename,
-        #     "classif_data": self._get_classif_data()
-        # }
-
-    def _extract_class_tags(self) -> list[dict]:
-        """ Extract class tags from a CSV to list of dictionaries 
-
-        Args:
-        class_tags_file (str): path to the CSV file
+    def _extract_class_tags(self) -> List[Dict[str, str]]:
+        """
+        Extract class tags from a CSV to a list of dictionaries.
 
         Returns:
-        list: list of dictionaries with the content of the CSV file
+            List of dictionaries with the content of the CSV file.
         """
-
         with open(self.classif_tags_filepath, "r") as f:
             reader = DictReader(f)
             return list(reader)
 
-    def _get_classif_data(self):
-        """ Extract classification data from the CSV file """
+    def _get_classif_data(self) -> Dict[str, str]:
+        """
+        Extract classification data from the CSV file.
+
+        Returns:
+            Dictionary containing classification data for the subscene.
+        """
         classif_tags = self._extract_class_tags()
         # search for the subscene id in the filename
         subscene_id = self._get_image_id()
         # filter the classification data for the subscene id
         return list(filter(lambda x: x["scene"] == subscene_id, classif_tags))[0]
 
-    def _get_product_id(self):
+    def _get_product_id(self) -> str:
         """ Extract the product id from the classification data """
         return self._get_classif_data()["scene"]
 
-    def _load_shapefile(self, shapefile_dir: str):
+    def _load_shapefile(self, shapefile_dir: str) -> Tuple[AffineTransformer, str, Tuple[float]]:
         """ Load the shapefile with the geospatial information. """
         shapefile_path = os.path.join(
             shapefile_dir, f"{self.id}/{self.id}.shp")
@@ -192,10 +229,13 @@ class Subscene(BaseImage):
 
         return transform, crs, bounds
 
-    def save_subscene_tiles_geo(self, output_dir: str, out_dtype: type = np.uint16):
-        """ Alternative: Save the subscene tiles to a Cloud Optimized GeoTIFF 
-            This method uses geospatial metadata to save the tiles in the correct geospatial
-            location.
+    def save_subscene_tiles_geo(self, output_dir: str, out_dtype: type = np.uint16) -> None:
+        """
+        Save the subscene tiles to a Cloud Optimized GeoTIFF.
+
+        Args:
+            output_dir: Directory to save the tiles.
+            out_dtype: Data type for the output tiles.
         """
         # Create ouput dir if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
@@ -232,62 +272,24 @@ class Subscene(BaseImage):
                 for i in range(c):
                     band = tile[:, :, i]
                     dataset.write_band(i+1, band)
-    # def save_subscene_tiles(self, output_dir: str, out_dtype: type = np.uint16, pixel_size: tuple[int, int] = (10, 10), crs: str = "EPSG:4326"):
-    #     """ Save the subscene tiles to a Cloud Optimized GeoTIFF """
-    #     # Create ouput dir if it doesn't exist
-    #     os.makedirs(output_dir, exist_ok=True)
-
-    #     for t in self.tiles:
-    #         tile = t["tile"].astype(out_dtype)
-    #         tile_id = t["id"]
-    #         tile_coords = t["original_coords"]
-
-    #         # TODO: Not sure if it's correctly handled here
-    #         row_start = tile_coords['row_start'] * pixel_size[0]
-    #         col_start = tile_coords['col_start'] * pixel_size[1]
-
-    #         transform = from_origin(
-    #             north=row_start,
-    #             west=col_start,
-    #             ysize=pixel_size[0],
-    #             xsize=pixel_size[1],
-    #         )
-
-    #         h, w, c = tile.shape
-    #         output_path = self._generate_tile_ouput_path(
-    #             output_dir, tile_id, "tif")
-    #         self.tiles
-    #         # print(f"Saving tile to {output_path}")
-
-    #         with rasterio.open(
-    #             output_path,
-    #             'w',
-    #             driver='GTiff',
-    #             height=h,
-    #             width=w,
-    #             count=c,
-    #             dtype=tile.dtype,
-    #             crs=crs,
-    #             transform=transform,
-    #             tiled=True,
-    #         ) as dataset:
-    #             for i in range(c):
-    #                 band = tile[:, :, i]
-    #                 dataset.write_band(i+1, band)
 
 
 class Mask(BaseImage):
-    def __init__(self, mask_dir: str, mask_filename: str, tile_size: tuple[int, int] = (512, 512)):
+    def __init__(self, mask_dir: str, mask_filename: str, tile_size: Tuple[int, int] = (512, 512)):
+        """
+        Initialize Mask with mask directory, filename, and tile size.
+
+        Args:
+            mask_dir: Directory containing the mask file.
+            mask_filename: Name of the mask file.
+            tile_size: Tuple specifying the tile size.
+        """
         super().__init__(mask_dir, mask_filename)
         self.tile_size = tile_size
         self.id = self._get_image_id()
         self.tiles = self._tile_image()
-        # self.metadata = {
-        #     "id": self._get_image_id(),
-        #     "filename": mask_filename,
-        # }
 
-    def save_mask(self, output_dir: str, out_dtype: type = np.uint8):
+    def save_mask(self, output_dir: str, out_dtype: type = np.uint8) -> None:
         """ Save the mask tiles to disk """
         # Create ouput dir if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
@@ -303,7 +305,7 @@ class Mask(BaseImage):
 
             np.save(output_path, tile_mask.astype(out_dtype))
 
-    def _calculate_cloud_coverage(self, mask) -> None:
+    def _calculate_cloud_coverage(self, mask: np.ndarray) -> float:
         """
         Calculate cloud coverage percentage from one-hot encoded mask
 
